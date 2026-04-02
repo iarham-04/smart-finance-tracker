@@ -1,0 +1,135 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Manrope:wght@700;800&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-headline: "Manrope", ui-sans-serif, system-ui, sans-serif;
+  --font-body: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-label: "Inter", ui-sans-serif, system-ui, sans-serif;
+
+  --color-surface-container: #121b1a;
+  --color-on-tertiary-fixed-variant: #790010;
+  --color-on-surface: #dfe7e5;
+  --color-surface-container-highest: #1c2826;
+  --color-secondary-dim: #eba300;
+  --color-on-primary-fixed-variant: #00694d;
+  --color-on-error-container: #ffa8a3;
+  --color-surface: #08100f;
+  --color-tertiary-fixed: #ff928c;
+  --color-primary-dim: #4eeeb9;
+  --color-outline: #6f7776;
+  --color-on-secondary-fixed-variant: #6d4a00;
+  --color-surface-container-low: #0c1514;
+  --color-on-primary-fixed: #004935;
+  --color-inverse-primary: #006c50;
+  --color-secondary: #fcaf00;
+  --color-surface-dim: #08100f;
+  --color-surface-container-high: #172220;
+  --color-surface-tint: #60fcc6;
+  --color-on-secondary-container: #fff6ef;
+  --color-secondary-container: #7f5600;
+  --color-background: #08100f;
+  --color-inverse-surface: #f3fbf9;
+  --color-on-error: #490006;
+  --color-on-tertiary: #490006;
+  --color-on-primary: #005e44;
+  --color-on-tertiary-container: #110000;
+  --color-secondary-fixed-dim: #ffb62d;
+  --color-tertiary-container: #f94d4e;
+  --color-primary-fixed: #60fcc6;
+  --color-tertiary-fixed-dim: #ff7b75;
+  --color-error: #ff716c;
+  --color-error-container: #9f0519;
+  --color-surface-bright: #222e2d;
+  --color-tertiary: #ff716c;
+  --color-outline-variant: #414a48;
+  --color-on-secondary: #503500;
+  --color-primary: #60fcc6;
+  --color-inverse-on-surface: #4e5755;
+  --color-tertiary-dim: #ff716c;
+  --color-primary-fixed-dim: #4eeeb9;
+  --color-surface-variant: #1c2826;
+  --color-on-primary-container: #003d2b;
+  --color-surface-container-lowest: #000000;
+  --color-on-secondary-fixed: #482f00;
+  --color-primary-container: #19ce9b;
+  --color-on-surface-variant: #a4adab;
+  --color-on-tertiary-fixed: #3a0004;
+  --color-secondary-fixed: #ffc972;
+  --color-on-background: #dfe7e5;
+  --color-error-dim: #d7383b;
+}
+
+.light {
+  --color-surface-container: #f3fbf9;
+  --color-on-tertiary-fixed-variant: #ffdad6;
+  --color-on-surface: #172220;
+  --color-surface-container-highest: #e6eeec;
+  --color-secondary-dim: #7f5600;
+  --color-on-primary-fixed-variant: #002116;
+  --color-on-error-container: #410002;
+  --color-surface: #f3fbf9;
+  --color-tertiary-fixed: #904a47;
+  --color-primary-dim: #006c50;
+  --color-outline: #6f7977;
+  --color-on-secondary-fixed-variant: #261900;
+  --color-surface-container-low: #f8fdfc;
+  --color-on-primary-fixed: #002116;
+  --color-inverse-primary: #4eeeb9;
+  --color-secondary: #7f5600;
+  --color-surface-dim: #d4dbd9;
+  --color-surface-container-high: #edf5f3;
+  --color-surface-tint: #006c50;
+  --color-on-secondary-container: #261900;
+  --color-secondary-container: #ffdf9e;
+  --color-background: #f3fbf9;
+  --color-inverse-surface: #2b3231;
+  --color-on-error: #ffffff;
+  --color-on-tertiary: #ffffff;
+  --color-on-primary: #ffffff;
+  --color-on-tertiary-container: #410002;
+  --color-secondary-fixed-dim: #eba300;
+  --color-tertiary-container: #ffdad6;
+  --color-primary-fixed: #006c50;
+  --color-tertiary-fixed-dim: #ffb4ab;
+  --color-error: #ba1a1a;
+  --color-error-container: #ffdad6;
+  --color-surface-bright: #f3fbf9;
+  --color-tertiary: #904a47;
+  --color-outline-variant: #bfc9c6;
+  --color-on-secondary: #ffffff;
+  --color-primary: #006c50;
+  --color-inverse-on-surface: #edf5f3;
+  --color-tertiary-dim: #ffb4ab;
+  --color-primary-fixed-dim: #4eeeb9;
+  --color-surface-variant: #dae5e2;
+  --color-on-primary-container: #002116;
+  --color-surface-container-lowest: #ffffff;
+  --color-on-secondary-fixed: #261900;
+  --color-primary-container: #60fcc6;
+  --color-on-surface-variant: #3f4947;
+  --color-on-tertiary-fixed: #410002;
+  --color-secondary-fixed: #ffdf9e;
+  --color-on-background: #172220;
+  --color-error-dim: #ba1a1a;
+}
+
+@layer base {
+  body {
+    @apply bg-background text-on-surface font-body;
+    min-height: 100dvh;
+  }
+}
+
+.kinetic-blur {
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.chart-glow {
+  filter: drop-shadow(0 0 8px rgba(96, 252, 198, 0.3));
+}
+
