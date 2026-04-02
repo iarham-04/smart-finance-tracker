@@ -32,6 +32,7 @@ export interface ExchangeRates {
 }
 
 export interface AppData {
+  userName: string;
   transactions: Transaction[];
   budgets: Record<ExpenseCategory, number>;
   history: {

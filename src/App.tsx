@@ -1043,6 +1043,7 @@ export default function App() {
   const [currentCalendarMonth, setCurrentCalendarMonth] = useState(new Date());
   const [isSavingsGoalModalOpen, setIsSavingsGoalModalOpen] = useState(false);
   const [isResetModalOpen, setIsResetModalOpen] = useState(false);
+  const [isNameModalOpen, setIsNameModalOpen] = useState(false);
   const [isBalanceModalOpen, setIsBalanceModalOpen] = useState(false);
   const [transactionType, setTransactionType] = useState<TransactionType>('Expense');
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
@@ -1076,6 +1077,11 @@ export default function App() {
           parsed.initialBalance = 0;
         }
 
+        // Migration: Add userName if missing
+        if (!parsed.userName) {
+          parsed.userName = '';
+        }
+
         // Migration: If history is an array (legacy), convert to new format
         if (Array.isArray(parsed.history)) {
           return {
@@ -1100,8 +1106,22 @@ export default function App() {
         console.error('Failed to parse local data', e);
       }
     }
-    return { transactions: DEFAULT_TRANSACTIONS, history: DEFAULT_HISTORY, budgets: BUDGETS, savingsGoal: 5000, currency: DEFAULT_CURRENCY, initialBalance: 0 };
+    return { 
+      userName: '',
+      transactions: DEFAULT_TRANSACTIONS, 
+      history: DEFAULT_HISTORY, 
+      budgets: BUDGETS, 
+      savingsGoal: 5000, 
+      currency: DEFAULT_CURRENCY, 
+      initialBalance: 0 
+    };
   });
+
+  useEffect(() => {
+    if (!data.userName && activeTab !== 'profile') {
+      setIsNameModalOpen(true);
+    }
+  }, [data.userName]);
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
@@ -1150,6 +1170,11 @@ export default function App() {
       ...prev,
       initialBalance: inrAmount
     }));
+  };
+
+  const handleUpdateUserName = (name: string) => {
+    setData(prev => ({ ...prev, userName: name }));
+    setIsNameModalOpen(false);
   };
 
   const handleResetData = () => {
@@ -1268,9 +1293,12 @@ export default function App() {
                 </div>
               </div>
               
-              <div className="text-center">
-                <h2 className="text-3xl font-headline font-extrabold tracking-tight">Arham</h2>
-                <p className="text-on-surface-variant font-medium mt-1">mohdarham4652@gmail.com</p>
+              <div className="text-center group cursor-pointer" onClick={() => setIsNameModalOpen(true)}>
+                <div className="flex items-center justify-center gap-2">
+                  <h2 className="text-3xl font-headline font-extrabold tracking-tight">{data.userName || 'Set Name'}</h2>
+                  <Edit3 className="w-5 h-5 text-primary opacity-0 group-hover:opacity-100 transition-opacity" />
+                </div>
+                <p className="text-on-surface-variant font-medium mt-1">Personal Account</p>
               </div>
 
               <div className="w-full space-y-4">
@@ -1361,6 +1389,65 @@ export default function App() {
                     Cancel
                   </button>
                 </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Name Setup Modal */}
+      <AnimatePresence>
+        {isNameModalOpen && (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-black/60 backdrop-blur-sm">
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-surface-container-high w-full max-w-sm rounded-[2rem] p-8 shadow-2xl border border-outline-variant/10"
+            >
+              <div className="space-y-6">
+                <div className="text-center space-y-2">
+                  <div className="w-16 h-16 rounded-2xl bg-primary/10 text-primary flex items-center justify-center mx-auto mb-4">
+                    <User className="w-8 h-8" />
+                  </div>
+                  <h2 className="text-2xl font-headline font-bold text-on-surface">What's your name?</h2>
+                  <p className="text-on-surface-variant">We'll use this to personalize your experience.</p>
+                </div>
+
+                <form onSubmit={(e) => {
+                  e.preventDefault();
+                  const name = new FormData(e.currentTarget).get('userName') as string;
+                  if (name.trim()) handleUpdateUserName(name.trim());
+                }} className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-on-surface-variant ml-1">Your Name</label>
+                    <input 
+                      name="userName"
+                      type="text"
+                      defaultValue={data.userName}
+                      placeholder="Enter your name"
+                      autoFocus
+                      className="w-full bg-surface-container-low border border-outline-variant/20 rounded-2xl px-5 py-4 focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-3 pt-2">
+                    <button 
+                      type="submit"
+                      className="w-full py-4 bg-primary text-on-primary rounded-2xl font-headline font-bold shadow-lg shadow-primary/20 hover:shadow-primary/40 transition-all active:scale-95"
+                    >
+                      Save Name
+                    </button>
+                    {data.userName && (
+                      <button 
+                        type="button"
+                        onClick={() => setIsNameModalOpen(false)}
+                        className="w-full py-4 bg-surface-container-highest text-on-surface rounded-2xl font-headline font-bold hover:bg-surface-container-low transition-all active:scale-95"
+                      >
+                        Cancel
+                      </button>
+                    )}
+                  </div>
+                </form>
               </div>
             </motion.div>
           </div>
