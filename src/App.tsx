@@ -71,7 +71,18 @@ import {
 } from 'date-fns';
 import { cn } from './lib/utils';
 import { Transaction, Category, AppData, TransactionType, ExpenseCategory, IncomeCategory, Insight, Currency, ExchangeRates } from './types';
-import { BUDGETS, CATEGORY_CONFIG, STORAGE_KEY, DEFAULT_TRANSACTIONS, DEFAULT_HISTORY, CURRENCIES, DEFAULT_CURRENCY, RATES_STORAGE_KEY, FALLBACK_RATES } from './constants';
+import { BUDGETS, CATEGORY_CONFIG, DEFAULT_TRANSACTIONS, DEFAULT_HISTORY, CURRENCIES, DEFAULT_CURRENCY, FALLBACK_RATES } from './constants';
+import {
+  apiGetTransactions,
+  apiAddTransaction,
+  apiDeleteTransaction,
+  apiGetBudgets,
+  apiUpdateBudget,
+  apiGetSettings,
+  apiSaveSettings,
+  apiResetAll,
+  apiGetExchangeRates,
+} from './api';
 
 // --- Components ---
 
@@ -613,8 +624,8 @@ const DashboardView = ({ transactions, history, budgets, savingsGoal, onSetGoal,
                 <Info className="w-5 h-5" />
               </div>
               <div>
-                <h4 className="font-bold text-on-surface">Offline Mode</h4>
-                <p className="text-sm text-on-surface-variant mt-1 leading-relaxed">Your data is stored securely in your browser's local storage. No account required.</p>
+                <h4 className="font-bold text-on-surface">Backend Mode</h4>
+                <p className="text-sm text-on-surface-variant mt-1 leading-relaxed">Your data is persisted in a Java Spring Boot backend with an H2 database. All business logic runs server-side.</p>
               </div>
             </div>
           </div>
@@ -978,34 +989,18 @@ const BudgetsView = ({ transactions, budgets, onUpdateBudget, savingsGoal, onOpe
 // --- Main App ---
 
 export default function App() {
-  const [exchangeRates, setExchangeRates] = useState<ExchangeRates | null>(() => {
-    const saved = localStorage.getItem(RATES_STORAGE_KEY);
-    return saved ? JSON.parse(saved) : null;
-  });
+  const [exchangeRates, setExchangeRates] = useState<ExchangeRates | null>(null);
   const [loadingRates, setLoadingRates] = useState(false);
 
   const fetchExchangeRates = async () => {
     setLoadingRates(true);
     try {
-      const response = await fetch('https://api.exchangerate-api.com/v4/latest/INR');
-      if (!response.ok) throw new Error('Network response was not ok');
-      const data = await response.json();
-      const newRates: ExchangeRates = {
-        rates: data.rates,
-        lastUpdated: Date.now(),
-        isOffline: false
-      };
-      setExchangeRates(newRates);
-      localStorage.setItem(RATES_STORAGE_KEY, JSON.stringify(newRates));
+      const rates = await apiGetExchangeRates();
+      setExchangeRates(rates);
     } catch (error) {
       console.error('Failed to fetch exchange rates:', error);
       if (!exchangeRates) {
-        const fallback: ExchangeRates = {
-          rates: FALLBACK_RATES,
-          lastUpdated: Date.now(),
-          isOffline: true
-        };
-        setExchangeRates(fallback);
+        setExchangeRates({ rates: FALLBACK_RATES, lastUpdated: Date.now(), isOffline: true });
       } else {
         setExchangeRates({ ...exchangeRates, isOffline: true });
       }
@@ -1051,81 +1046,37 @@ export default function App() {
     return (saved as 'light' | 'dark') || 'dark';
   });
 
-  const [data, setData] = useState<AppData>(() => {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        
-        // Migration: Add budgets if missing
-        if (!parsed.budgets) {
-          parsed.budgets = BUDGETS;
-        }
-
-        // Migration: Add savingsGoal if missing
-        if (parsed.savingsGoal === undefined) {
-          parsed.savingsGoal = 5000;
-        }
-
-        // Migration: Add currency if missing
-        if (!parsed.currency) {
-          parsed.currency = DEFAULT_CURRENCY;
-        }
-
-        // Migration: Add initialBalance if missing
-        if (parsed.initialBalance === undefined) {
-          parsed.initialBalance = 0;
-        }
-
-        // Migration: Add userName if missing
-        if (!parsed.userName) {
-          parsed.userName = '';
-        }
-
-        // Migration: If history is an array (legacy), convert to new format
-        if (Array.isArray(parsed.history)) {
-          return {
-            ...parsed,
-            history: {
-              income: [0, 0, 0, 0, 0, 0],
-              expense: parsed.history
-            },
-            savingsGoal: parsed.savingsGoal || 5000
-          };
-        }
-        // Ensure history object has the required fields
-        if (!parsed.history || !parsed.history.income || !parsed.history.expense) {
-          return {
-            ...parsed,
-            history: DEFAULT_HISTORY,
-            savingsGoal: parsed.savingsGoal || 5000
-          };
-        }
-        return parsed;
-      } catch (e) {
-        console.error('Failed to parse local data', e);
-      }
-    }
-    return { 
-      userName: '',
-      transactions: DEFAULT_TRANSACTIONS, 
-      history: DEFAULT_HISTORY, 
-      budgets: BUDGETS, 
-      savingsGoal: 5000, 
-      currency: DEFAULT_CURRENCY, 
-      initialBalance: 0 
-    };
+  const [data, setData] = useState<AppData>({
+    userName: '',
+    transactions: DEFAULT_TRANSACTIONS,
+    history: DEFAULT_HISTORY,
+    budgets: BUDGETS,
+    savingsGoal: 5000,
+    currency: DEFAULT_CURRENCY,
+    initialBalance: 0,
   });
+
+  // Load all app data from the Java backend on mount.
+  useEffect(() => {
+    Promise.all([
+      apiGetTransactions(),
+      apiGetBudgets(),
+      apiGetSettings(),
+    ]).then(([transactions, budgets, settings]) => {
+      setData(prev => ({
+        ...prev,
+        transactions,
+        budgets: { ...prev.budgets, ...budgets },
+        ...settings,
+      }));
+    }).catch(err => console.error('Failed to load app data from backend:', err));
+  }, []);
 
   useEffect(() => {
     if (!data.userName && activeTab !== 'profile') {
       setIsNameModalOpen(true);
     }
   }, [data.userName]);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-  }, [data]);
 
   useEffect(() => {
     localStorage.setItem('monarch_theme', theme);
@@ -1142,52 +1093,56 @@ export default function App() {
     const inrAmount = unconvert(amount, data.currency.code);
     setData(prev => ({
       ...prev,
-      budgets: {
-        ...prev.budgets,
-        [category]: inrAmount
-      }
+      budgets: { ...prev.budgets, [category]: inrAmount }
     }));
+    apiUpdateBudget(category, inrAmount).catch(err =>
+      console.error('Failed to save budget:', err)
+    );
   };
 
   const handleUpdateSavingsGoal = (amount: number) => {
     const inrAmount = unconvert(amount, data.currency.code);
-    setData(prev => ({
-      ...prev,
-      savingsGoal: inrAmount
-    }));
+    setData(prev => ({ ...prev, savingsGoal: inrAmount }));
+    apiSaveSettings({ savingsGoal: inrAmount }).catch(err =>
+      console.error('Failed to save savings goal:', err)
+    );
   };
 
   const handleCurrencyChange = (currency: Currency) => {
-    setData(prev => ({
-      ...prev,
-      currency
-    }));
+    setData(prev => ({ ...prev, currency }));
+    apiSaveSettings({ currency }).catch(err =>
+      console.error('Failed to save currency:', err)
+    );
   };
 
   const handleUpdateInitialBalance = (amount: number) => {
     const inrAmount = unconvert(amount, data.currency.code);
-    setData(prev => ({
-      ...prev,
-      initialBalance: inrAmount
-    }));
+    setData(prev => ({ ...prev, initialBalance: inrAmount }));
+    apiSaveSettings({ initialBalance: inrAmount }).catch(err =>
+      console.error('Failed to save initial balance:', err)
+    );
   };
 
   const handleUpdateUserName = (name: string) => {
     setData(prev => ({ ...prev, userName: name }));
     setIsNameModalOpen(false);
+    apiSaveSettings({ userName: name }).catch(err =>
+      console.error('Failed to save user name:', err)
+    );
   };
 
   const handleResetData = () => {
     setData({
+      userName: '',
       transactions: DEFAULT_TRANSACTIONS,
       history: DEFAULT_HISTORY,
       budgets: BUDGETS,
       savingsGoal: 5000,
       currency: DEFAULT_CURRENCY,
-      initialBalance: 0
+      initialBalance: 0,
     });
-    localStorage.removeItem(STORAGE_KEY);
     setIsResetModalOpen(false);
+    apiResetAll().catch(err => console.error('Failed to reset data:', err));
   };
 
   const handleAddTransaction = (e: React.FormEvent<HTMLFormElement>) => {
@@ -1195,20 +1150,36 @@ export default function App() {
     const formData = new FormData(e.currentTarget);
     const enteredAmount = parseFloat(formData.get('amount') as string);
     const inrAmount = unconvert(enteredAmount, data.currency.code);
-    
-    const newTransaction: Transaction = {
-      id: Date.now().toString(),
+
+    const newTransaction: Omit<Transaction, 'id'> = {
       name: formData.get('name') as string,
       amount: inrAmount,
       category: formData.get('category') as Category,
       date: formData.get('date') as string,
       type: transactionType,
     };
+    // Optimistic UI update with a temporary id
+    const tempId = Date.now().toString();
     setData(prev => ({
       ...prev,
-      transactions: [newTransaction, ...prev.transactions]
+      transactions: [{ ...newTransaction, id: tempId }, ...prev.transactions]
     }));
     setIsModalOpen(false);
+
+    apiAddTransaction(newTransaction).then(saved => {
+      // Replace the temporary id with the server-assigned id
+      setData(prev => ({
+        ...prev,
+        transactions: prev.transactions.map(t => t.id === tempId ? saved : t)
+      }));
+    }).catch(err => {
+      console.error('Failed to save transaction:', err);
+      // Roll back optimistic update on failure
+      setData(prev => ({
+        ...prev,
+        transactions: prev.transactions.filter(t => t.id !== tempId)
+      }));
+    });
   };
 
   const handleDeleteExpense = (id: string) => {
@@ -1216,6 +1187,9 @@ export default function App() {
       ...prev,
       transactions: prev.transactions.filter(t => t.id !== id)
     }));
+    apiDeleteTransaction(id).catch(err =>
+      console.error('Failed to delete transaction:', err)
+    );
   };
 
   const currentYear = format(new Date(), 'yyyy');
@@ -1230,7 +1204,7 @@ export default function App() {
   return (
     <div className="min-h-screen pb-32 transition-colors duration-300">
       <TopAppBar 
-        subTitle={`Local Mode • ${currentYear}`} 
+        subTitle={`API Mode • ${currentYear}`} 
         theme={theme} 
         toggleTheme={toggleTheme} 
         onCalendarClick={() => setIsCalendarOpen(true)}

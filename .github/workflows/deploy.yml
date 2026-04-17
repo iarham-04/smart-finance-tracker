@@ -1,4 +1,4 @@
-name: Deploy static content to Pages
+name: Build, Test and Deploy
 
 on:
   push:
@@ -15,7 +15,31 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # ── Java backend: build & test ────────────────────────────────────────────
+  backend:
+    name: Java Backend (Spring Boot)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Build and test with Maven
+        run: mvn --batch-mode verify
+
+  # ── React frontend: build & deploy ───────────────────────────────────────
   deploy:
+    name: Frontend (React / Vite)
+    needs: backend
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -23,23 +47,30 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: 'npm'
+
       - name: Install dependencies
         run: npm ci
+
       - name: Build
         run: npm run build
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+
       - name: Setup Pages
         uses: actions/configure-pages@v4
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: './dist'
+
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+
