@@ -60,9 +60,34 @@ export const FALLBACK_RATES: Record<string, number> = {
   INR: 1.0
 };
 
-export const DEFAULT_TRANSACTIONS: Transaction[] = [];
+export const DEFAULT_TRANSACTIONS: Transaction[] = [
+  { id: 't001', name: 'Monthly Salary', category: 'Salary', amount: 55000, date: '2026-04-01', type: 'Income' },
+  { id: 't002', name: 'Grocery Shopping', category: 'Food', amount: 2400, date: '2026-04-02', type: 'Expense' },
+  { id: 't003', name: 'Electricity Bill', category: 'Bills', amount: 1800, date: '2026-04-03', type: 'Expense' },
+  { id: 't004', name: 'Uber Ride', category: 'Transport', amount: 350, date: '2026-04-04', type: 'Expense' },
+  { id: 't005', name: 'Netflix Subscription', category: 'Entertainment', amount: 649, date: '2026-04-05', type: 'Expense' },
+  { id: 't006', name: 'Freelance Project', category: 'Freelance', amount: 12000, date: '2026-04-06', type: 'Income' },
+  { id: 't007', name: 'Restaurant Dinner', category: 'Food', amount: 1850, date: '2026-04-07', type: 'Expense' },
+  { id: 't008', name: 'Online Course', category: 'Education', amount: 2999, date: '2026-04-08', type: 'Expense' },
+  { id: 't009', name: 'Pharmacy', category: 'Health', amount: 780, date: '2026-04-09', type: 'Expense' },
+  { id: 't010', name: 'Amazon Shopping', category: 'Shopping', amount: 3200, date: '2026-04-10', type: 'Expense' },
+  { id: 't011', name: 'Internet Bill', category: 'Bills', amount: 999, date: '2026-04-11', type: 'Expense' },
+  { id: 't012', name: 'Metro Card Recharge', category: 'Transport', amount: 500, date: '2026-04-12', type: 'Expense' },
+  { id: 't013', name: 'Birthday Gift Received', category: 'Gift', amount: 3000, date: '2026-04-13', type: 'Income' },
+  { id: 't014', name: 'Coffee & Snacks', category: 'Food', amount: 620, date: '2026-04-14', type: 'Expense' },
+  { id: 't015', name: 'Gym Membership', category: 'Health', amount: 1500, date: '2026-04-15', type: 'Expense' },
+  { id: 't016', name: 'Clothing Store', category: 'Shopping', amount: 2750, date: '2026-04-16', type: 'Expense' },
+  { id: 't017', name: 'Movie Tickets', category: 'Entertainment', amount: 900, date: '2026-04-17', type: 'Expense' },
+  { id: 't018', name: 'Dividend Income', category: 'Investment', amount: 4500, date: '2026-04-18', type: 'Income' },
+  { id: 't019', name: 'Petrol', category: 'Transport', amount: 2200, date: '2026-04-19', type: 'Expense' },
+  { id: 't020', name: 'Water Bill', category: 'Bills', amount: 450, date: '2026-04-20', type: 'Expense' },
+  { id: 't021', name: 'Swiggy Order', category: 'Food', amount: 480, date: '2026-04-21', type: 'Expense' },
+  { id: 't022', name: 'Book Purchase', category: 'Education', amount: 850, date: '2026-04-22', type: 'Expense' },
+  { id: 't023', name: 'Tax Refund', category: 'Refund', amount: 5200, date: '2026-04-23', type: 'Income' },
+  { id: 't024', name: 'Spotify Premium', category: 'Entertainment', amount: 119, date: '2026-04-23', type: 'Expense' },
+];
 
 export const DEFAULT_HISTORY = {
-  income: [0, 0, 0, 0, 0, 0],
-  expense: [0, 0, 0, 0, 0, 0]
+  income: [45000, 47500, 52000, 49000, 53000, 58000],
+  expense: [32000, 36500, 29000, 41000, 38500, 43000]
 };
