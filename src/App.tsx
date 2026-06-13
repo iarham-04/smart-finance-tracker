@@ -33,7 +33,9 @@ import {
   BriefcaseBusiness,
   Sun,
   Moon,
-  ChevronDown
+  ChevronDown,
+  Bot,
+  SendHorizontal
 } from 'lucide-react';
 import { 
   LineChart as RechartsLineChart, 
@@ -72,8 +74,18 @@ import {
 import { cn } from './lib/utils';
 import { Transaction, Category, AppData, TransactionType, ExpenseCategory, IncomeCategory, Insight, Currency, ExchangeRates } from './types';
 import { BUDGETS, CATEGORY_CONFIG, STORAGE_KEY, DEFAULT_TRANSACTIONS, DEFAULT_HISTORY, CURRENCIES, DEFAULT_CURRENCY, RATES_STORAGE_KEY, FALLBACK_RATES } from './constants';
+import { AssistantMemory, createFinanceSnapshot, generateAssistantReply } from './lib/aiAssistant';
 
 // --- Components ---
+
+const AI_CHAT_STORAGE_KEY = 'monarch_ai_chat';
+const AI_MEMORY_STORAGE_KEY = 'monarch_ai_memory';
+
+type ChatMessage = {
+  id: string;
+  role: 'user' | 'assistant';
+  text: string;
+};
 
 const TopAppBar = ({ 
   subTitle, 
@@ -182,6 +194,7 @@ const BottomNavBar = ({ activeTab, setActiveTab }: { activeTab: string; setActiv
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'expenses', label: 'Expenses', icon: ReceiptText },
     { id: 'budgets', label: 'Budgets', icon: Wallet },
+    { id: 'ai', label: 'AI', icon: Bot },
     { id: 'profile', label: 'Profile', icon: User },
   ];
 
@@ -975,6 +988,90 @@ const BudgetsView = ({ transactions, budgets, onUpdateBudget, savingsGoal, onOpe
   );
 };
 
+const AIAssistantView = ({
+  messages,
+  input,
+  onInputChange,
+  onSend,
+  onClear,
+  memory,
+}: {
+  messages: ChatMessage[];
+  input: string;
+  onInputChange: (value: string) => void;
+  onSend: () => void;
+  onClear: () => void;
+  memory: AssistantMemory;
+}) => {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -20 }}
+      className="space-y-5"
+    >
+      <section className="mt-4 p-5 rounded-2xl bg-surface-container-high border border-outline-variant/10">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h3 className="font-headline font-bold text-lg text-on-surface flex items-center gap-2">
+              <Bot className="w-5 h-5 text-primary" />
+              AI Finance Coach
+            </h3>
+            <p className="text-xs text-on-surface-variant mt-1">
+              Ask for budgeting help, savings strategies, or a multi-step action workflow.
+            </p>
+            {memory.focusCategory && (
+              <p className="text-[10px] mt-2 text-primary font-bold uppercase tracking-wider">
+                Memory: focused on {memory.focusCategory}
+              </p>
+            )}
+          </div>
+          <button
+            onClick={onClear}
+            className="text-xs px-3 py-2 rounded-lg bg-surface-container-highest text-on-surface-variant hover:text-primary"
+          >
+            Clear
+          </button>
+        </div>
+      </section>
+
+      <section className="bg-surface-container-low rounded-2xl p-4 h-[360px] overflow-y-auto space-y-3">
+        {messages.map((message) => (
+          <div
+            key={message.id}
+            className={cn(
+              "max-w-[88%] p-3 rounded-xl text-sm leading-relaxed",
+              message.role === 'assistant'
+                ? "bg-surface-container-high text-on-surface"
+                : "ml-auto bg-primary text-on-primary"
+            )}
+          >
+            {message.text}
+          </div>
+        ))}
+      </section>
+
+      <section className="flex items-center gap-2">
+        <input
+          value={input}
+          onChange={(e) => onInputChange(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') onSend();
+          }}
+          placeholder="Ask the AI coach..."
+          className="w-full bg-surface-container-low rounded-xl p-4 focus:ring-1 focus:ring-primary/20"
+        />
+        <button
+          onClick={onSend}
+          className="w-12 h-12 rounded-xl bg-primary text-on-primary flex items-center justify-center active:scale-95"
+        >
+          <SendHorizontal className="w-5 h-5" />
+        </button>
+      </section>
+    </motion.div>
+  );
+};
+
 // --- Main App ---
 
 export default function App() {
@@ -1050,6 +1147,36 @@ export default function App() {
     const saved = localStorage.getItem('monarch_theme');
     return (saved as 'light' | 'dark') || 'dark';
   });
+  const [assistantMessages, setAssistantMessages] = useState<ChatMessage[]>(() => {
+    const saved = localStorage.getItem(AI_CHAT_STORAGE_KEY);
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch (error) {
+        console.error('Failed to parse AI chat history', error);
+      }
+    }
+    return [
+      {
+        id: 'welcome',
+        role: 'assistant',
+        text: 'Hi! I am your AI finance coach. Ask me for budget advice, savings tips, or a multi-step plan.',
+      },
+    ];
+  });
+  const [assistantMemory, setAssistantMemory] = useState<AssistantMemory>(() => {
+    const saved = localStorage.getItem(AI_MEMORY_STORAGE_KEY);
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (error) {
+        console.error('Failed to parse AI memory', error);
+      }
+    }
+    return { focusCategory: null };
+  });
+  const [assistantInput, setAssistantInput] = useState('');
 
   const [data, setData] = useState<AppData>(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
@@ -1128,6 +1255,14 @@ export default function App() {
   }, [data]);
 
   useEffect(() => {
+    localStorage.setItem(AI_CHAT_STORAGE_KEY, JSON.stringify(assistantMessages));
+  }, [assistantMessages]);
+
+  useEffect(() => {
+    localStorage.setItem(AI_MEMORY_STORAGE_KEY, JSON.stringify(assistantMemory));
+  }, [assistantMemory]);
+
+  useEffect(() => {
     localStorage.setItem('monarch_theme', theme);
     if (theme === 'light') {
       document.body.classList.add('light');
@@ -1177,6 +1312,47 @@ export default function App() {
     setIsNameModalOpen(false);
   };
 
+  const handleSendAssistantMessage = () => {
+    const trimmed = assistantInput.trim();
+    if (!trimmed) return;
+
+    const userMessage: ChatMessage = {
+      id: `user-${Date.now()}`,
+      role: 'user',
+      text: trimmed,
+    };
+
+    const snapshot = createFinanceSnapshot(
+      data.transactions,
+      data.budgets,
+      data.savingsGoal,
+      data.initialBalance,
+      data.currency.code,
+      convert
+    );
+    const assistantReply = generateAssistantReply(trimmed, snapshot, assistantMemory, data.currency.symbol);
+    const assistantMessage: ChatMessage = {
+      id: `assistant-${Date.now() + 1}`,
+      role: 'assistant',
+      text: assistantReply.text,
+    };
+
+    setAssistantMessages((prev) => [...prev, userMessage, assistantMessage]);
+    setAssistantMemory(assistantReply.memory);
+    setAssistantInput('');
+  };
+
+  const handleClearAssistantHistory = () => {
+    setAssistantMessages([
+      {
+        id: 'welcome',
+        role: 'assistant',
+        text: 'Hi! I am your AI finance coach. Ask me for budget advice, savings tips, or a multi-step plan.',
+      },
+    ]);
+    setAssistantMemory({ focusCategory: null });
+  };
+
   const handleResetData = () => {
     setData({
       transactions: DEFAULT_TRANSACTIONS,
@@ -1187,6 +1363,9 @@ export default function App() {
       initialBalance: 0
     });
     localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(AI_CHAT_STORAGE_KEY);
+    localStorage.removeItem(AI_MEMORY_STORAGE_KEY);
+    handleClearAssistantHistory();
     setIsResetModalOpen(false);
   };
 
@@ -1274,6 +1453,18 @@ export default function App() {
                 currency={data.currency}
                 initialBalance={data.initialBalance}
                 convert={convert}
+              />
+            </div>
+          )}
+          {activeTab === 'ai' && (
+            <div key="ai">
+              <AIAssistantView
+                messages={assistantMessages}
+                input={assistantInput}
+                onInputChange={setAssistantInput}
+                onSend={handleSendAssistantMessage}
+                onClear={handleClearAssistantHistory}
+                memory={assistantMemory}
               />
             </div>
           )}
@@ -1455,15 +1646,17 @@ export default function App() {
       </AnimatePresence>
 
       {/* FAB */}
-      <button 
-        onClick={() => {
-          setTransactionType('Expense');
-          setIsModalOpen(true);
-        }}
-        className="fixed bottom-24 right-6 w-16 h-16 rounded-2xl bg-gradient-to-br from-primary to-primary-container shadow-[0_12px_32px_rgba(25,206,155,0.3)] flex items-center justify-center text-on-primary-container active:scale-90 transition-transform z-[60]"
-      >
-        <Plus className="w-8 h-8" />
-      </button>
+      {activeTab !== 'ai' && (
+        <button 
+          onClick={() => {
+            setTransactionType('Expense');
+            setIsModalOpen(true);
+          }}
+          className="fixed bottom-24 right-6 w-16 h-16 rounded-2xl bg-gradient-to-br from-primary to-primary-container shadow-[0_12px_32px_rgba(25,206,155,0.3)] flex items-center justify-center text-on-primary-container active:scale-90 transition-transform z-[60]"
+        >
+          <Plus className="w-8 h-8" />
+        </button>
+      )}
 
       {/* Modal */}
       <AnimatePresence>

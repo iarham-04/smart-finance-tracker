@@ -18,3 +18,9 @@ View your app in AI Studio: https://ai.studio/apps/2b8e618c-547d-4b1b-aa81-1798f
 2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
 3. Run the app:
    `npm run dev`
+
+## AI Finance Coach
+
+- Open the **AI** tab in the bottom navigation.
+- Ask for budgeting help, savings guidance, or a multi-step workflow.
+- The coach keeps lightweight memory (like your focused spending category) and chat history in local storage.
