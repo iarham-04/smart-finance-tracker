@@ -80,11 +80,20 @@ import { AssistantMemory, createFinanceSnapshot, generateAssistantReply } from '
 
 const AI_CHAT_STORAGE_KEY = 'monarch_ai_chat';
 const AI_MEMORY_STORAGE_KEY = 'monarch_ai_memory';
+const AI_WELCOME_MESSAGE = 'Hi! I am your AI finance coach. Ask me for budget advice, savings tips, or a multi-step plan.';
 
 type ChatMessage = {
   id: string;
   role: 'user' | 'assistant';
   text: string;
+};
+
+const createMessageId = () => {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  const perf = typeof performance !== 'undefined' ? performance.now().toString(36) : '0';
+  return `${Date.now()}-${perf}-${Math.random().toString(36).slice(2, 12)}`;
 };
 
 const TopAppBar = ({ 
@@ -1154,14 +1163,14 @@ export default function App() {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) return parsed;
       } catch (error) {
-        console.error('Failed to parse AI chat history', error);
+        console.error('Failed to parse AI chat history from localStorage, using default welcome message instead', error);
       }
     }
     return [
       {
         id: 'welcome',
         role: 'assistant',
-        text: 'Hi! I am your AI finance coach. Ask me for budget advice, savings tips, or a multi-step plan.',
+        text: AI_WELCOME_MESSAGE,
       },
     ];
   });
@@ -1171,7 +1180,7 @@ export default function App() {
       try {
         return JSON.parse(saved);
       } catch (error) {
-        console.error('Failed to parse AI memory', error);
+        console.error('Failed to parse AI memory from localStorage, initializing with empty memory instead', error);
       }
     }
     return { focusCategory: null };
@@ -1317,7 +1326,7 @@ export default function App() {
     if (!trimmed) return;
 
     const userMessage: ChatMessage = {
-      id: `user-${Date.now()}`,
+      id: createMessageId(),
       role: 'user',
       text: trimmed,
     };
@@ -1332,7 +1341,7 @@ export default function App() {
     );
     const assistantReply = generateAssistantReply(trimmed, snapshot, assistantMemory, data.currency.symbol);
     const assistantMessage: ChatMessage = {
-      id: `assistant-${Date.now() + 1}`,
+      id: createMessageId(),
       role: 'assistant',
       text: assistantReply.text,
     };
@@ -1347,7 +1356,7 @@ export default function App() {
       {
         id: 'welcome',
         role: 'assistant',
-        text: 'Hi! I am your AI finance coach. Ask me for budget advice, savings tips, or a multi-step plan.',
+        text: AI_WELCOME_MESSAGE,
       },
     ]);
     setAssistantMemory({ focusCategory: null });

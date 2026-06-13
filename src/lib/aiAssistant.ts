@@ -21,7 +21,7 @@ const EXPENSE_CATEGORIES: ExpenseCategory[] = ['Food', 'Transport', 'Shopping', 
 export const createFinanceSnapshot = (
   transactions: Transaction[],
   budgets: Record<ExpenseCategory, number>,
-  savingsGoal: number,
+  savingsGoalRaw: number,
   initialBalance: number,
   currencyCode: string,
   convert: (amount: number, code: string) => number
@@ -31,33 +31,52 @@ export const createFinanceSnapshot = (
   const netBalanceRaw = initialBalance + totalIncomeRaw - totalSpentRaw;
 
   const expenseTotals = EXPENSE_CATEGORIES.reduce<Record<ExpenseCategory, number>>((acc, category) => {
-    acc[category] = transactions
-      .filter((t) => t.type === 'Expense' && t.category === category)
-      .reduce((sum, t) => sum + t.amount, 0);
+    acc[category] = 0;
     return acc;
   }, {} as Record<ExpenseCategory, number>);
 
-  const topExpenseCategory =
-    EXPENSE_CATEGORIES.reduce((top, current) => (expenseTotals[current] > expenseTotals[top] ? current : top), EXPENSE_CATEGORIES[0]);
+  transactions.forEach((transaction) => {
+    if (transaction.type === 'Expense' && EXPENSE_CATEGORIES.includes(transaction.category as ExpenseCategory)) {
+      const category = transaction.category as ExpenseCategory;
+      expenseTotals[category] += transaction.amount;
+    }
+  });
 
-  const topExpenseAmount = expenseTotals[topExpenseCategory];
+  let topExpenseCategoryCandidate = EXPENSE_CATEGORIES[0];
+  let topExpenseAmountRaw = expenseTotals[topExpenseCategoryCandidate];
+  EXPENSE_CATEGORIES.forEach((category) => {
+    if (expenseTotals[category] > topExpenseAmountRaw) {
+      topExpenseCategoryCandidate = category;
+      topExpenseAmountRaw = expenseTotals[category];
+    }
+  });
+  const topExpenseCategory = topExpenseAmountRaw > 0 ? topExpenseCategoryCandidate : null;
 
-  const riskiestBudgetCategory = EXPENSE_CATEGORIES.reduce((top, current) => {
-    const topUsage = budgets[top] > 0 ? expenseTotals[top] / budgets[top] : 0;
-    const currentUsage = budgets[current] > 0 ? expenseTotals[current] / budgets[current] : 0;
-    return currentUsage > topUsage ? current : top;
-  }, EXPENSE_CATEGORIES[0]);
+  const validBudgetCategories = EXPENSE_CATEGORIES.filter((category) => budgets[category] > 0);
+  let riskiestBudgetCategory: ExpenseCategory | null = null;
+  let maxBudgetUsage = 0;
 
-  const riskiestBudgetUsage = budgets[riskiestBudgetCategory] > 0 ? (expenseTotals[riskiestBudgetCategory] / budgets[riskiestBudgetCategory]) * 100 : 0;
+  validBudgetCategories.forEach((category) => {
+    const usage = expenseTotals[category] / budgets[category];
+    if (usage > maxBudgetUsage) {
+      maxBudgetUsage = usage;
+      riskiestBudgetCategory = category;
+    }
+  });
+
+  const riskiestBudgetUsage =
+    riskiestBudgetCategory && budgets[riskiestBudgetCategory] > 0
+      ? (expenseTotals[riskiestBudgetCategory] / budgets[riskiestBudgetCategory]) * 100
+      : 0;
 
   return {
     totalIncome: convert(totalIncomeRaw, currencyCode),
     totalSpent: convert(totalSpentRaw, currencyCode),
     netBalance: convert(netBalanceRaw, currencyCode),
-    savingsGoal: convert(savingsGoal, currencyCode),
-    savingsProgress: savingsGoal > 0 ? Math.max(0, Math.min(Math.round((netBalanceRaw / savingsGoal) * 100), 100)) : 0,
-    topExpenseCategory: topExpenseAmount > 0 ? topExpenseCategory : null,
-    topExpenseAmount: convert(topExpenseAmount, currencyCode),
+    savingsGoal: convert(savingsGoalRaw, currencyCode),
+    savingsProgress: savingsGoalRaw > 0 ? Math.max(0, Math.round((netBalanceRaw / savingsGoalRaw) * 100)) : 0,
+    topExpenseCategory,
+    topExpenseAmount: convert(topExpenseAmountRaw, currencyCode),
     riskiestBudgetCategory,
     riskiestBudgetUsage: Math.round(riskiestBudgetUsage),
   };
@@ -96,6 +115,7 @@ export const generateAssistantReply = (
     ...memory,
     focusCategory: detectedCategory || memory.focusCategory || null,
   };
+  const budgetTargetLabel = snapshot.riskiestBudgetCategory ?? 'your key budget category';
 
   if (lowerMessage.includes('hello') || lowerMessage.includes('hi')) {
     return {
@@ -111,7 +131,7 @@ export const generateAssistantReply = (
         `Here is a 3-step workflow:\n` +
         `1) Review: Income ${currencySymbol}${snapshot.totalIncome.toLocaleString()} vs spending ${currencySymbol}${snapshot.totalSpent.toLocaleString()}.\n` +
         `2) Prioritize: ${snapshot.topExpenseCategory ? `${snapshot.topExpenseCategory} is your top expense (${currencySymbol}${snapshot.topExpenseAmount.toLocaleString()}).` : 'Add a few transactions to detect your top expense category.'}\n` +
-        `3) Execute: Keep ${snapshot.riskiestBudgetCategory} below 80% of budget (currently ${snapshot.riskiestBudgetUsage}%) and push savings progress from ${snapshot.savingsProgress}% to 100%.`,
+        `3) Execute: Keep ${budgetTargetLabel} below 80% of budget (currently ${snapshot.riskiestBudgetUsage}%) and push savings progress from ${snapshot.savingsProgress}% to 100%.`,
     };
   }
 
@@ -119,7 +139,7 @@ export const generateAssistantReply = (
     return {
       memory: nextMemory,
       text:
-        `${snapshot.riskiestBudgetCategory} is the highest-risk budget at ${snapshot.riskiestBudgetUsage}% usage. ` +
+        `${budgetTargetLabel} is the highest-risk budget at ${snapshot.riskiestBudgetUsage}% usage. ` +
         `${snapshot.riskiestBudgetUsage >= 90 ? 'Pause optional expenses in this category for a few days.' : 'You still have room, but track it closely this week.'}`,
     };
   }
@@ -135,7 +155,7 @@ export const generateAssistantReply = (
     };
   }
 
-  const focusText = nextMemory.focusCategory ? `I remembered you're focused on ${nextMemory.focusCategory}. ` : '';
+  const focusText = nextMemory.focusCategory ? `You mentioned ${nextMemory.focusCategory}. ` : '';
   return {
     memory: nextMemory,
     text:
